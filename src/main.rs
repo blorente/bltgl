@@ -75,12 +75,21 @@ fn test_world() -> World {
     }
 }
 
-fn render_quad(quad: &Quad, buffer: &mut GraphicsBuffer) {
-    let [xstart, ystart] = quad.pos;
-    for y in ystart..min(quad.height + ystart, buffer.height) {
-        for x in xstart..min(quad.width + xstart, buffer.width) {
-            eprintln!("Render quad, x={}, y={}", x, y);
-            buffer.buffer[(y * buffer.width + x) as usize] = Glyph {
+fn render_quad(quad: &Quad, camera: &mut Camera) {
+    let [pointx, pointy] = camera.world_to_camera(quad.pos[0], quad.pos[1]);
+
+    let [endx, endy]: [u16; 2] = [
+        min(max(pointx + quad.width as i32, 0) as u16, camera.width),
+        min(max(pointy + quad.height as i32, 0) as u16, camera.height),
+    ];
+    let [startx, starty] = [max(pointx, 0) as u16, max(pointy, 0) as u16];
+    eprintln!(
+        "Rendering Quad: Start=({}, {}) End=({}, {})",
+        startx, starty, endx, endy
+    );
+    for x in startx..endx {
+        for y in starty..endy {
+            camera.buffer[(y * camera.width + x) as usize] = Glyph {
                 fg: ColorRGBA::black().into(),
                 bg: quad.color.into(),
                 ch: ' ',
@@ -88,46 +97,58 @@ fn render_quad(quad: &Quad, buffer: &mut GraphicsBuffer) {
         }
     }
 }
-fn mark_quad(quad: &Quad, buffer: &mut GraphicsBuffer) {
-    let [xstart, ystart] = quad.pos;
-    for y in ystart..min(quad.height + ystart, buffer.height) {
-        for x in xstart..min(quad.width + xstart, buffer.width) {
-            eprintln!("Render quad, x={}, y={}", x, y);
-            buffer.buffer[(y * buffer.width + x) as usize] = Glyph {
+fn mark_quad(quad: &Quad, camera: &mut Camera) {
+    let [pointx, pointy] = camera.world_to_camera(quad.pos[0], quad.pos[1]);
+
+    let [endx, endy]: [u16; 2] = [
+        min(max(pointx + quad.width as i32, 0) as u16, camera.width),
+        min(max(pointy + quad.height as i32, 0) as u16, camera.height),
+    ];
+    let [startx, starty] = [max(pointx, 0) as u16, max(pointy, 0) as u16];
+    eprintln!(
+        "Marking Quad: Start=({}, {}) End=({}, {})",
+        startx, starty, endx, endy
+    );
+    for x in startx..endx {
+        for y in starty..endy {
+            camera.buffer[(y * camera.width + x) as usize] = Glyph {
                 fg: ColorRGBA::black().into(),
                 bg: quad.color.into(),
-                ch: 'X',
+                ch: 'M',
             }
         }
     }
 }
 
-fn render_buffer(buffer: &mut GraphicsBuffer) {
+fn render_buffer(camera: &Camera, buffer: &Vec<Glyph>) -> String {
     // TODO measure size of a styled glyph.
-    let mut output: String = String::with_capacity(buffer.buffer.len() * 4);
-    for (i, glyph) in buffer.buffer.iter().enumerate() {
-        if i % buffer.width as usize == 0 && i > 0 {
+    let mut output: String = String::with_capacity(camera.buffer.len() * 4);
+    for (i, glyph) in camera.buffer.iter().enumerate() {
+        if i % camera.width as usize == 0 && i > 0 {
             output += "\r\n";
         }
         output += &format!("{}", glyph.ch.with(glyph.fg.into()).on(glyph.bg.into()));
     }
-    execute!(
-        stdout(),
-        SetBackgroundColor(Color::Black),
-        SetForegroundColor(Color::Black),
-        MoveTo(0, 0),
-    );
-    print!("{}", output);
+    output
+}
+fn render_to_console(camera: &mut Camera) {
+    let blackout_str = render_buffer(&camera, &camera.blackout_buffer);
+    let content = render_buffer(&camera, &camera.buffer);
+    execute!(stdout(), MoveTo(0, 0),);
+    print!("{}", blackout_str);
+    execute!(stdout(), MoveTo(0, 0),);
+    print!("{}", content);
 }
 
-fn render(world: &World, buffer: &mut GraphicsBuffer) {
+fn render(world: &World, camera: &mut Camera) {
+    camera.buffer = camera.blackout_buffer.clone();
     for (i, ele) in world.quads.iter().enumerate() {
-        render_quad(&ele, buffer);
+        render_quad(&ele, camera);
         if i == world.index {
-            mark_quad(&ele, buffer);
+            mark_quad(&ele, camera);
         }
     }
-    render_buffer(buffer);
+    render_to_console(camera);
 }
 
 #[derive(Clone)]
@@ -147,31 +168,73 @@ impl Glyph {
     }
 }
 
-struct GraphicsBuffer {
+struct Camera {
     buffer: Vec<Glyph>,
+    blackout_buffer: Vec<Glyph>,
     // TODO Move these to camera
     width: u16,
     height: u16,
+    focus: [i32; 2],
 }
 
-impl GraphicsBuffer {
+impl Camera {
     pub fn new(screen_dimensions: [u16; 2]) -> Self {
         Self {
             buffer: vec![Glyph::empty(); (screen_dimensions[0] * screen_dimensions[1]) as usize],
+            blackout_buffer: vec![
+                Glyph::empty();
+                (screen_dimensions[0] * screen_dimensions[1]) as usize
+            ],
             width: screen_dimensions[0],
             height: screen_dimensions[1],
+            focus: [
+                (screen_dimensions[0] / 2).try_into().expect("TODO"),
+                (screen_dimensions[1] / 2).try_into().expect("TODO"),
+            ],
         }
+    }
+
+    pub fn move_left(&mut self) {
+        self.focus[0] -= 1;
+    }
+    pub fn move_up(&mut self) {
+        self.focus[1] -= 1;
+    }
+    pub fn move_right(&mut self) {
+        self.focus[0] += 1;
+    }
+    pub fn move_down(&mut self) {
+        self.focus[1] += 1;
+    }
+
+    pub fn world_to_camera(&self, x: u16, y: u16) -> [i32; 2] {
+        let upcornerx = self.focus[0] - (self.width / 2) as i32;
+        let upcornery = self.focus[1] - (self.height / 2) as i32;
+        [x as i32 - upcornerx, y as i32 - upcornery]
     }
 }
 
 fn run_app(world: &mut World) -> Result<()> {
-    let mut buffer = GraphicsBuffer::new([90, 30]);
-    render(&world, &mut buffer);
+    let mut camera = Camera::new([90, 30]);
+    render(&world, &mut camera);
     loop {
         // Blocking read
         let event = read()?;
 
-        if event == Event::Key(KeyCode::Char('c').into()) {}
+        // Movement of camera
+        if event == Event::Key(KeyCode::Char('h').into()) {
+            camera.move_left()
+        }
+        if event == Event::Key(KeyCode::Char('j').into()) {
+            camera.move_down()
+        }
+        if event == Event::Key(KeyCode::Char('k').into()) {
+            camera.move_up()
+        }
+        if event == Event::Key(KeyCode::Char('l').into()) {
+            camera.move_right()
+        }
+
         if event == Event::Key(KeyCode::Char('n').into()) {
             world.index = (world.index + 1) % world.quads.len();
         }
@@ -184,7 +247,7 @@ fn run_app(world: &mut World) -> Result<()> {
         if event == Event::Key(KeyCode::Esc.into()) {
             break;
         }
-        render(&world, &mut buffer);
+        render(&world, &mut camera);
     }
 
     Ok(())
