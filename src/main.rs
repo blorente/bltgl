@@ -4,13 +4,13 @@ use std::{
 };
 
 use crossterm::{
-    cursor::{Hide, MoveLeft, MoveRight, MoveTo, MoveToColumn, MoveToRow, Show},
-    event::{read, Event, EventStream, KeyCode},
-    execute, queue,
-    style::{Color, PrintStyledContent, SetBackgroundColor, SetForegroundColor, Stylize},
+    cursor::{Hide, MoveTo, Show},
+    event::{read, Event, KeyCode},
+    execute,
+    style::{Color, Stylize},
     terminal,
     terminal::{Clear, ClearType},
-    QueueableCommand, Result,
+    Result,
 };
 
 #[derive(Clone, Copy)]
@@ -69,7 +69,7 @@ fn test_world() -> World {
             Quad::new( [1, 1], 5, 5, ColorRGBA::green() ),
             Quad::new( [2, 2], 5, 5, ColorRGBA::red() ),
             Quad::new( [11, 3], 10, 10, ColorRGBA::blue() ),
-            Quad::new( [20, 4], 1000, 10, ColorRGBA::green() ),
+            Quad::new( [20, 4], 1000, 10, ColorRGBA::white() ),
         ],
         index: 0,
     }
@@ -120,7 +120,7 @@ fn mark_quad(quad: &Quad, camera: &mut Camera) {
     }
 }
 
-fn render_buffer(camera: &Camera, buffer: &Vec<Glyph>) -> String {
+fn render_buffer(camera: &Camera) -> String {
     // TODO measure size of a styled glyph.
     let mut output: String = String::with_capacity(camera.buffer.len() * 4);
     for (i, glyph) in camera.buffer.iter().enumerate() {
@@ -131,16 +131,17 @@ fn render_buffer(camera: &Camera, buffer: &Vec<Glyph>) -> String {
     }
     output
 }
-fn render_to_console(camera: &mut Camera) {
-    let blackout_str = render_buffer(&camera, &camera.blackout_buffer);
-    let content = render_buffer(&camera, &camera.buffer);
-    execute!(stdout(), MoveTo(0, 0),);
+fn render_to_console(camera: &mut Camera) -> Result<()> {
+    let blackout_str = render_buffer(&camera);
+    let content = render_buffer(&camera);
+    execute!(stdout(), MoveTo(0, 0),)?;
     print!("{}", blackout_str);
-    execute!(stdout(), MoveTo(0, 0),);
+    execute!(stdout(), MoveTo(0, 0),)?;
     print!("{}", content);
+    Ok(())
 }
 
-fn render(world: &World, camera: &mut Camera) {
+fn render(world: &World, camera: &mut Camera) -> Result<()> {
     camera.buffer = camera.blackout_buffer.clone();
     for (i, ele) in world.quads.iter().enumerate() {
         render_quad(&ele, camera);
@@ -148,7 +149,7 @@ fn render(world: &World, camera: &mut Camera) {
             mark_quad(&ele, camera);
         }
     }
-    render_to_console(camera);
+    render_to_console(camera)
 }
 
 #[derive(Clone)]
@@ -216,7 +217,7 @@ impl Camera {
 
 fn run_app(world: &mut World) -> Result<()> {
     let mut camera = Camera::new([90, 30]);
-    render(&world, &mut camera);
+    render(&world, &mut camera)?;
     loop {
         // Blocking read
         let event = read()?;
@@ -247,7 +248,7 @@ fn run_app(world: &mut World) -> Result<()> {
         if event == Event::Key(KeyCode::Esc.into()) {
             break;
         }
-        render(&world, &mut camera);
+        render(&world, &mut camera)?;
     }
 
     Ok(())
