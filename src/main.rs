@@ -6,11 +6,11 @@ use std::{
 use crossterm::{
     cursor::{Hide, MoveLeft, MoveRight, MoveTo, MoveToColumn, MoveToRow, Show},
     event::{read, Event, EventStream, KeyCode},
-    execute,
-    style::{Color, SetBackgroundColor, SetForegroundColor},
+    execute, queue,
+    style::{Color, PrintStyledContent, SetBackgroundColor, SetForegroundColor, Stylize},
     terminal,
     terminal::{Clear, ClearType},
-    Result,
+    QueueableCommand, Result,
 };
 
 #[derive(Clone, Copy)]
@@ -75,49 +75,98 @@ fn test_world() -> World {
     }
 }
 
-fn render_quad(quad: &Quad) {
+fn render_quad(quad: &Quad, buffer: &mut GraphicsBuffer) {
     let [xstart, ystart] = quad.pos;
-    execute!(
-        stdout(),
-        SetBackgroundColor(quad.color.into()),
-        SetForegroundColor(Color::Black),
-    );
-    for i in 0..quad.height {
-        let x = xstart;
-        let y = ystart + i;
-        let width = min(quad.width, 100);
-        execute!(stdout(), MoveTo(x, y));
-        print!("{}", " ".repeat(width as usize));
+    for y in ystart..min(quad.height + ystart, buffer.height) {
+        for x in xstart..min(quad.width + xstart, buffer.width) {
+            eprintln!("Render quad, x={}, y={}", x, y);
+            buffer.buffer[(y * buffer.width + x) as usize] = Glyph {
+                fg: ColorRGBA::black().into(),
+                bg: quad.color.into(),
+                ch: ' ',
+            }
+        }
     }
 }
-fn mark_quad(quad: &Quad) {
+fn mark_quad(quad: &Quad, buffer: &mut GraphicsBuffer) {
     let [xstart, ystart] = quad.pos;
-    execute!(
-        stdout(),
-        SetBackgroundColor(quad.color.into()),
-        SetForegroundColor(Color::Black),
-    );
-
-    execute!(stdout(), MoveTo(xstart, ystart));
-    print!("X");
+    for y in ystart..min(quad.height + ystart, buffer.height) {
+        for x in xstart..min(quad.width + xstart, buffer.width) {
+            eprintln!("Render quad, x={}, y={}", x, y);
+            buffer.buffer[(y * buffer.width + x) as usize] = Glyph {
+                fg: ColorRGBA::black().into(),
+                bg: quad.color.into(),
+                ch: 'X',
+            }
+        }
+    }
 }
 
-fn render(world: &World) {
+fn render_buffer(buffer: &mut GraphicsBuffer) {
+    // TODO measure size of a styled glyph.
+    let mut output: String = String::with_capacity(buffer.buffer.len() * 4);
+    for (i, glyph) in buffer.buffer.iter().enumerate() {
+        if i % buffer.width as usize == 0 && i > 0 {
+            output += "\r\n";
+        }
+        output += &format!("{}", glyph.ch.with(glyph.fg.into()).on(glyph.bg.into()));
+    }
     execute!(
         stdout(),
         SetBackgroundColor(Color::Black),
-        Clear(ClearType::All),
+        SetForegroundColor(Color::Black),
+        MoveTo(0, 0),
     );
+    print!("{}", output);
+}
+
+fn render(world: &World, buffer: &mut GraphicsBuffer) {
     for (i, ele) in world.quads.iter().enumerate() {
-        render_quad(&ele);
+        render_quad(&ele, buffer);
         if i == world.index {
-            mark_quad(&ele);
+            mark_quad(&ele, buffer);
+        }
+    }
+    render_buffer(buffer);
+}
+
+#[derive(Clone)]
+struct Glyph {
+    fg: ColorRGBA,
+    bg: ColorRGBA,
+    ch: char,
+}
+
+impl Glyph {
+    fn empty() -> Self {
+        Self {
+            fg: ColorRGBA::black(),
+            bg: ColorRGBA::black(),
+            ch: ' ',
+        }
+    }
+}
+
+struct GraphicsBuffer {
+    buffer: Vec<Glyph>,
+    // TODO Move these to camera
+    width: u16,
+    height: u16,
+}
+
+impl GraphicsBuffer {
+    pub fn new(screen_dimensions: [u16; 2]) -> Self {
+        Self {
+            buffer: vec![Glyph::empty(); (screen_dimensions[0] * screen_dimensions[1]) as usize],
+            width: screen_dimensions[0],
+            height: screen_dimensions[1],
         }
     }
 }
 
 fn run_app(world: &mut World) -> Result<()> {
-    render(&world);
+    let mut buffer = GraphicsBuffer::new([90, 30]);
+    render(&world, &mut buffer);
     loop {
         // Blocking read
         let event = read()?;
@@ -135,7 +184,7 @@ fn run_app(world: &mut World) -> Result<()> {
         if event == Event::Key(KeyCode::Esc.into()) {
             break;
         }
-        render(&world);
+        render(&world, &mut buffer);
     }
 
     Ok(())
