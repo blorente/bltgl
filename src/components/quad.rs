@@ -28,13 +28,8 @@ impl Quad {
 
 impl Renderable for Quad {
     fn render(&self, camera: &mut Camera) {
-        let [pointx, pointy] = camera.world_to_camera(self.pos[0], self.pos[1]);
-
-        let [endx, endy]: [u16; 2] = [
-            min(max(pointx + self.width as i32, 0) as u16, camera.width),
-            min(max(pointy + self.height as i32, 0) as u16, camera.height),
-        ];
-        let [startx, starty] = [max(pointx, 0) as u16, max(pointy, 0) as u16];
+        let [[startx, starty], [endx, endy]] =
+            camera.project([self.pos[0], self.pos[1]], [self.width, self.height]);
         for x in startx..endx {
             for y in starty..endy {
                 camera.buffer[(y * camera.width + x) as usize] = Glyph {

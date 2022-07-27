@@ -2,7 +2,7 @@ use std::io::stdout;
 
 use camera::{Camera, Renderable};
 use color::ColorRGBA;
-use components::quad::Quad;
+use components::{quad::Quad, textbox::TextBox};
 use crossterm::{
     cursor::{Hide, Show},
     event::{read, Event, KeyCode},
@@ -17,6 +17,7 @@ mod components;
 
 struct World {
     quads: Vec<Quad>,
+    textboxes: Vec<TextBox>,
     index: usize,
 }
 
@@ -28,6 +29,11 @@ fn test_world() -> World {
             Quad::new( [2, 2], 5, 5, ColorRGBA::red() ),
             Quad::new( [11, 3], 10, 10, ColorRGBA::blue() ),
             Quad::new( [20, 4], 1000, 10, ColorRGBA::white() ),
+        ],
+        #[rustfmt::skip]
+        textboxes: vec![
+            TextBox::new([10, 10], 29, "Hello"),
+            TextBox::new([16, 19], 29, "Hello"),
         ],
         index: 0,
     }
@@ -43,6 +49,9 @@ impl Renderable for World {
             } else {
                 ele.render(camera);
             }
+        }
+        for tbx in self.textboxes.iter() {
+            tbx.render(camera);
         }
     }
 }

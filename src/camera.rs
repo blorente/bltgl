@@ -1,6 +1,9 @@
 use crate::color::ColorRGBA;
 use crossterm::{cursor::MoveTo, execute, style::Stylize, Result};
-use std::io::stdout;
+use std::{
+    cmp::{max, min},
+    io::stdout,
+};
 
 pub trait Renderable {
     fn render(&self, camera: &mut Camera);
@@ -62,6 +65,16 @@ impl Camera {
         self.focus[1] += 1;
     }
 
+    pub fn project(&self, position: [u16; 2], dimensions: [u16; 2]) -> [[u16; 2]; 2] {
+        let [pointx, pointy] = self.world_to_camera(position[0], position[1]);
+
+        let [endx, endy]: [u16; 2] = [
+            min(max(pointx + dimensions[0] as i32, 0) as u16, self.width),
+            min(max(pointy + dimensions[1] as i32, 0) as u16, self.height),
+        ];
+        let [startx, starty] = [max(pointx, 0) as u16, max(pointy, 0) as u16];
+        [[startx, starty], [endx, endy]]
+    }
     pub fn world_to_camera(&self, x: u16, y: u16) -> [i32; 2] {
         let upcornerx = self.focus[0] - (self.width / 2) as i32;
         let upcornery = self.focus[1] - (self.height / 2) as i32;
