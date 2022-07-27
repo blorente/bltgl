@@ -40,4 +40,10 @@ impl Renderable for Quad {
             }
         }
     }
+    fn center(&self, camera: &Camera) -> [i32; 2] {
+        [
+            (self.pos[0] + self.width / 2) as i32,
+            (self.pos[1] + self.height / 2) as i32,
+        ]
+    }
 }

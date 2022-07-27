@@ -21,6 +21,23 @@ struct World {
     index: usize,
 }
 
+impl Renderable for World {
+    fn render(&self, camera: &mut Camera) {
+        for ele in self.quads.iter() {
+            ele.render(camera);
+        }
+        for (i, ele) in self.textboxes.iter().enumerate() {
+            if i == self.index {
+                let mut marked: TextBox = ele.clone();
+                marked.set_color(ColorRGBA::green());
+                marked.render(camera);
+                marked.set_color(ColorRGBA::white());
+            } else {
+                ele.render(camera);
+            }
+        }
+    }
+}
 fn test_world() -> World {
     World {
         #[rustfmt::skip]
@@ -36,23 +53,6 @@ fn test_world() -> World {
             TextBox::new([16, 19], 29, "Hello"),
         ],
         index: 0,
-    }
-}
-
-impl Renderable for World {
-    fn render(&self, camera: &mut Camera) {
-        for (i, ele) in self.quads.iter().enumerate() {
-            if i == self.index {
-                let mut marked: Quad = ele.clone();
-                marked.ch = 'X';
-                marked.render(camera);
-            } else {
-                ele.render(camera);
-            }
-        }
-        for tbx in self.textboxes.iter() {
-            tbx.render(camera);
-        }
     }
 }
 
@@ -78,7 +78,8 @@ fn run_app(mut world: World) -> Result<()> {
         }
 
         if event == Event::Key(KeyCode::Char('n').into()) {
-            world.index = (world.index + 1) % world.quads.len();
+            world.index = (world.index + 1) % world.textboxes.len();
+            camera.focus_on(world.textboxes[world.index].center(&camera));
         }
         if event == Event::Key(KeyCode::Char('q').into()) {
             break;

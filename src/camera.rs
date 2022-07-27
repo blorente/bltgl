@@ -7,6 +7,9 @@ use std::{
 
 pub trait Renderable {
     fn render(&self, camera: &mut Camera);
+    fn center(&self, camera: &Camera) -> [i32; 2] {
+        camera.focus
+    }
 }
 #[derive(Clone)]
 pub struct Glyph {
@@ -63,6 +66,9 @@ impl Camera {
     }
     pub fn move_down(&mut self) {
         self.focus[1] += 1;
+    }
+    pub fn focus_on(&mut self, pos: [i32; 2]) {
+        self.focus = pos;
     }
 
     pub fn project(&self, position: [u16; 2], dimensions: [u16; 2]) -> [[u16; 2]; 2] {
