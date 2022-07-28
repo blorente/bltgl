@@ -28,7 +28,6 @@ impl TextBox {
     }
     fn calculate_quad(pos: [u16; 2], max_width: u16, text: &String, color: ColorRGBA) -> Quad {
         // TODO We're ignoring max_width for now.
-        eprintln!("Calculating quad with width: {}", text.len() as u16);
         let width = text.len() as u16 + 2;
         Quad::new(pos, width, 3, color)
     }
