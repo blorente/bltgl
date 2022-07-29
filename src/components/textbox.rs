@@ -1,5 +1,5 @@
 use crate::{
-    camera::{self, Camera, Renderable},
+    camera::{Camera, Renderable},
     color::ColorRGBA,
 };
 
@@ -9,13 +9,13 @@ use super::quad::Quad;
 pub struct TextBox {
     max_width: u16,
     text: String,
-    pos: [u16; 2],
+    pos: [i32; 2],
     quad: Quad,
     color: ColorRGBA,
 }
 
 impl TextBox {
-    pub fn new(pos: [u16; 2], max_width: u16, text: &str) -> Self {
+    pub fn new(pos: [i32; 2], max_width: u16, text: &str) -> Self {
         let text = text.to_string();
         let quad = Self::calculate_quad(pos, max_width, &text, ColorRGBA::white());
         Self {
@@ -26,7 +26,7 @@ impl TextBox {
             color: ColorRGBA::white(),
         }
     }
-    fn calculate_quad(pos: [u16; 2], max_width: u16, text: &String, color: ColorRGBA) -> Quad {
+    fn calculate_quad(pos: [i32; 2], max_width: u16, text: &String, color: ColorRGBA) -> Quad {
         // TODO We're ignoring max_width for now.
         let width = text.len() as u16 + 2;
         Quad::new(pos, width, 3, color)
@@ -49,7 +49,7 @@ impl Renderable for TextBox {
             return;
         }
         if startx == endx {
-            return
+            return;
         }
 
         // Indices to hold where the string starts and ends

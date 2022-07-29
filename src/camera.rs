@@ -35,7 +35,7 @@ pub struct Camera {
     // TODO Move these to camera
     pub width: u16,
     pub height: u16,
-    focus: [i32; 2],
+    pub focus: [i32; 2],
 }
 
 impl Camera {
@@ -75,7 +75,7 @@ impl Camera {
         self.width = cols;
         self.height = rows;
     }
-    pub fn project(&self, position: [u16; 2], dimensions: [u16; 2]) -> [[u16; 2]; 2] {
+    pub fn project(&self, position: [i32; 2], dimensions: [u16; 2]) -> [[u16; 2]; 2] {
         let [pointx, pointy] = self.world_to_camera(position[0], position[1]);
 
         let [endx, endy]: [u16; 2] = [
@@ -88,7 +88,7 @@ impl Camera {
         ];
         [[startx, starty], [endx, endy]]
     }
-    pub fn world_to_camera(&self, x: u16, y: u16) -> [i32; 2] {
+    pub fn world_to_camera(&self, x: i32, y: i32) -> [i32; 2] {
         let upcornerx = self.focus[0] - (self.width / 2) as i32;
         let upcornery = self.focus[1] - (self.height / 2) as i32;
         [x as i32 - upcornerx, y as i32 - upcornery]

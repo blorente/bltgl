@@ -1,5 +1,3 @@
-use std::cmp::{max, min};
-
 use crate::{
     camera::{Camera, Glyph, Renderable},
     color::ColorRGBA,
@@ -7,7 +5,7 @@ use crate::{
 
 #[derive(Clone)]
 pub struct Quad {
-    pub pos: [u16; 2],
+    pub pos: [i32; 2],
     pub width: u16,
     pub height: u16,
     pub color: ColorRGBA,
@@ -15,7 +13,7 @@ pub struct Quad {
 }
 
 impl Quad {
-    pub fn new(pos: [u16; 2], width: u16, height: u16, color: ColorRGBA) -> Self {
+    pub fn new(pos: [i32; 2], width: u16, height: u16, color: ColorRGBA) -> Self {
         Self {
             pos,
             width,
@@ -42,8 +40,8 @@ impl Renderable for Quad {
     }
     fn center(&self, camera: &Camera) -> [i32; 2] {
         [
-            (self.pos[0] + self.width / 2) as i32,
-            (self.pos[1] + self.height / 2) as i32,
+            (self.pos[0] + self.width as i32 / 2),
+            (self.pos[1] + self.height as i32 / 2),
         ]
     }
 }
