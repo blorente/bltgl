@@ -1,8 +1,9 @@
 use std::io::stdout;
 
+
 use camera::{Camera, Renderable};
 use color::ColorRGBA;
-use components::{quad::Quad, textbox::TextBox};
+use components::{prompt::Prompt, quad::Quad, status::Status, textbox::TextBox};
 use crossterm::{
     cursor::{Hide, Show},
     event::{read, Event, KeyCode},
@@ -10,36 +11,16 @@ use crossterm::{
     terminal::{Clear, ClearType},
     Result,
 };
+use world::App;
 
 mod camera;
 mod color;
 mod components;
+mod world;
 
-struct World {
-    quads: Vec<Quad>,
-    textboxes: Vec<TextBox>,
-    index: usize,
-}
 
-impl Renderable for World {
-    fn render(&self, camera: &mut Camera) {
-        for ele in self.quads.iter() {
-            ele.render(camera);
-        }
-        for (i, ele) in self.textboxes.iter().enumerate() {
-            if i == self.index {
-                let mut marked: TextBox = ele.clone();
-                marked.set_color(ColorRGBA::green());
-                marked.render(camera);
-                marked.set_color(ColorRGBA::white());
-            } else {
-                ele.render(camera);
-            }
-        }
-    }
-}
-fn test_world() -> World {
-    World {
+fn test_world() -> App {
+    App {
         #[rustfmt::skip]
         quads: vec![
             Quad::new( [1, 1], 5, 5, ColorRGBA::green() ),
@@ -50,13 +31,17 @@ fn test_world() -> World {
         #[rustfmt::skip]
         textboxes: vec![
             TextBox::new([10, 10], 29, "Hello"),
-            TextBox::new([16, 19], 29, "Hello"),
+            TextBox::new([16, 19], 29, "nayla is very pretty"),
+            TextBox::new([106, 19], 29, "Hello asdfasdf"),
+            TextBox::new([16, 50], 29, "Hello this is some text"),
         ],
         index: 0,
+        status: Status::new(),
+        prompt: Prompt::new("> "),
     }
 }
 
-fn run_app(mut world: World) -> Result<()> {
+fn run_app(mut world: App) -> Result<()> {
     let mut camera = Camera::new([90, 30]);
     Camera::render(&mut camera, &world)?;
     loop {
@@ -85,7 +70,9 @@ fn run_app(mut world: World) -> Result<()> {
             break;
         }
 
-        if let Event::Resize(_, _) = event {}
+        if let Event::Resize(cols, rows) = event {
+            camera.resize(cols, rows);
+        }
 
         if event == Event::Key(KeyCode::Esc.into()) {
             break;

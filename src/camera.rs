@@ -71,6 +71,10 @@ impl Camera {
         self.focus = pos;
     }
 
+    pub fn resize(&mut self, cols: u16, rows: u16) {
+        self.width = cols;
+        self.height = rows;
+    }
     pub fn project(&self, position: [u16; 2], dimensions: [u16; 2]) -> [[u16; 2]; 2] {
         let [pointx, pointy] = self.world_to_camera(position[0], position[1]);
 
@@ -78,13 +82,41 @@ impl Camera {
             min(max(pointx + dimensions[0] as i32, 0) as u16, self.width),
             min(max(pointy + dimensions[1] as i32, 0) as u16, self.height),
         ];
-        let [startx, starty] = [max(pointx, 0) as u16, max(pointy, 0) as u16];
+        let [startx, starty] = [
+            min(max(pointx, 0), self.width as i32) as u16,
+            min(max(pointy, 0), self.height as i32) as u16,
+        ];
         [[startx, starty], [endx, endy]]
     }
     pub fn world_to_camera(&self, x: u16, y: u16) -> [i32; 2] {
         let upcornerx = self.focus[0] - (self.width / 2) as i32;
         let upcornery = self.focus[1] - (self.height / 2) as i32;
         [x as i32 - upcornerx, y as i32 - upcornery]
+    }
+
+    // TODO Move this outside of the camera, to some utils or something.
+    pub fn write_text(
+        &mut self,
+        camera_pos: [u16; 2],
+        // Start and end offsets.
+        string_bounds: [usize; 2],
+        text: &String,
+        bg: ColorRGBA,
+        fg: ColorRGBA,
+    ) -> u16 {
+        let [startx, y] = camera_pos;
+        let [offset, clamp] = string_bounds;
+
+        let mut lastx = 0;
+        for (idx, ch) in text.as_str()[offset..clamp].chars().enumerate() {
+            let x = idx as u16 + startx;
+            if x > self.width {
+                return x;
+            }
+            self.buffer[((y * self.width) + x) as usize] = Glyph { fg, bg, ch };
+            lastx = x;
+        }
+        return lastx;
     }
 
     pub fn render<Rend: Renderable>(camera: &mut Camera, what: &Rend) -> Result<()> {
